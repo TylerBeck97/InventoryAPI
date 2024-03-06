@@ -1,9 +1,6 @@
 package inventory.restAPI;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -20,20 +17,49 @@ public class InventoryItemController {
         return repository.findAll();
     }
 
+    @GetMapping("/items/{barcode}")
+    InventoryItem getItem(@PathVariable String barcode) {return repository.findByBarcodeNumber(barcode);}
+
     @PostMapping("/items")
     InventoryItem newItem(@RequestBody InventoryItem newItem){
-        var barcodeRepository = repository.findByBarcodeNumber(newItem.getBarcodeNumber());
-        if (!barcodeRepository.isEmpty()){
-            for (InventoryItem item: barcodeRepository) {
-                item.addToQuantityByX(newItem.getQuantity());
+        if (newItem.getBarcodeNumber() == null)
+            return null;
 
-                //Update the description of the old item with the new item
-                if (!item.getDescription().equals(newItem.getDescription()))
-                    item.setDescription(newItem.getDescription());
+        var item = repository.findByBarcodeNumber(newItem.getBarcodeNumber());
+        if (item != null){
+            item.addToQuantityByX(newItem.getQuantity());
 
-                return repository.save(item);
+            //Removes item is its quantity is less than one
+            if (item.getQuantity() <= 0) {
+                repository.delete(item);
+                return item;
             }
+
+            //Update the description of the old item with the new item
+            if (!item.getDescription().equals(newItem.getDescription()))
+                item.setDescription(newItem.getDescription());
+
+            return repository.save(item);
         }
         return repository.save(newItem);
+    }
+
+    @DeleteMapping("/items/{barcode}")
+    InventoryItem deleteItem(@PathVariable String barcode){
+        var item = repository.findByBarcodeNumber(barcode);
+        if (item != null){
+            repository.delete(item);
+            return item;
+        }
+        return null;
+    }
+
+    @PutMapping("/items/{barcode}")
+    InventoryItem modifyItem(@PathVariable String barcode, @RequestBody InventoryItem item){
+        if (item.getQuantity() <= 0)
+            repository.delete(item);
+        else
+            repository.save(item);
+        return item;
     }
 }
